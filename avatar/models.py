@@ -14,6 +14,9 @@ from django.utils.encoding import force_text
 from django.utils import six
 from django.db.models import signals
 
+from imagekit.models import ProcessedImageField
+from imagekit.processors import SmartResize, Transpose
+
 from avatar.conf import settings
 from avatar.utils import get_username, force_bytes, invalidate_cache
 
@@ -72,7 +75,7 @@ def find_extension(format):
     return format
 
 
-class AvatarField(models.ImageField):
+class AvatarField(ProcessedImageField):
 
     def __init__(self, *args, **kwargs):
         super(AvatarField, self).__init__(*args, **kwargs)
@@ -97,7 +100,8 @@ class Avatar(models.Model):
         default=False,
     )
     avatar = AvatarField(
-        verbose_name=_("avatar")
+        verbose_name=_("avatar"),
+        processors=[Transpose(), SmartResize(200, 200)]
     )
     date_uploaded = models.DateTimeField(
         verbose_name=_("uploaded at"),
