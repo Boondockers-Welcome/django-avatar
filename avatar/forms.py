@@ -6,6 +6,7 @@ from django.utils import six
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 from django.template.defaultfilters import filesizeformat
+from keyhole.fields import CroppedImageField
 
 from avatar.conf import settings
 from avatar.models import Avatar
@@ -21,7 +22,10 @@ def avatar_img(avatar, size):
 
 class UploadAvatarForm(forms.Form):
 
-    avatar = forms.ImageField(label=_("avatar"))
+    avatar = CroppedImageField(
+        label=_("avatar"),
+        width=200,
+        height=200)
 
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user')
@@ -57,7 +61,7 @@ class UploadAvatarForm(forms.Form):
                 'nb_avatars': count,
                 'nb_max_avatars': settings.AVATAR_MAX_AVATARS_PER_USER,
             })
-        return
+        return data
 
 
 class PrimaryAvatarForm(forms.Form):

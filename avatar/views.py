@@ -64,10 +64,10 @@ def add(request, extra_context=None, next_override=None,
     upload_avatar_form = upload_form(request.POST or None,
                                      request.FILES or None,
                                      user=request.user)
-    if request.method == "POST" and 'avatar' in request.FILES:
+    if request.method == "POST":
         if upload_avatar_form.is_valid():
             avatar = Avatar(user=request.user, primary=True)
-            image_file = request.FILES['avatar']
+            image_file = upload_avatar_form.cleaned_data['avatar']
             avatar.avatar.save(image_file.name, image_file)
             avatar.save()
             messages.success(request, _("Successfully uploaded a new avatar."))
