@@ -13,6 +13,9 @@ from django.utils.translation import ugettext_lazy as _
 from django.utils.encoding import force_text
 from django.db.models import signals
 
+from imagekit.models import ProcessedImageField
+from imagekit.processors import SmartResize, Transpose
+
 from avatar.conf import settings
 from avatar.utils import get_username, force_bytes, invalidate_cache
 
@@ -77,7 +80,7 @@ def find_extension(format):
     return format
 
 
-class AvatarField(models.ImageField):
+class AvatarField(ProcessedImageField):
 
     def __init__(self, *args, **kwargs):
         super(AvatarField, self).__init__(*args, **kwargs)
@@ -102,7 +105,8 @@ class Avatar(models.Model):
         default=False,
     )
     avatar = AvatarField(
-        verbose_name=_("avatar")
+        verbose_name=_("avatar"),
+        processors=[Transpose(), SmartResize(200, 200)]
     )
     date_uploaded = models.DateTimeField(
         verbose_name=_("uploaded at"),
@@ -173,7 +177,7 @@ class Avatar(models.Model):
                 else:
                     diff = int((h - w) / 2)
                     image = image.crop((0, diff, w, h - diff))
-                if image.mode not in ("RGB", "RGBA"):
+                if image.mode not in ("RGB"):
                     image = image.convert("RGB")
                 image = image.resize((size, size), settings.AVATAR_RESIZE_METHOD)
                 thumb = six.BytesIO()
