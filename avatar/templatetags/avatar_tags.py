@@ -1,7 +1,15 @@
 from django import template
-from django.core.urlresolvers import reverse
+try:
+    from django.urls import reverse
+except ImportError:
+    # For Django < 1.10
+    from django.core.urlresolvers import reverse
 from django.template.loader import render_to_string
-from django.utils import six
+# Issue 182: six no longer included with Django 3.0
+try:
+    from django.utils import six
+except ImportError:
+    import six
 from django.utils.translation import ugettext as _
 from django.utils.module_loading import import_string
 

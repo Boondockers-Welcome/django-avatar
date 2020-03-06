@@ -1,8 +1,13 @@
 import os.path
 
+import math
 from django.contrib.admin.sites import AdminSite
 from django.test import TestCase
-from django.core.urlresolvers import reverse
+try:
+    from django.urls import reverse
+except ImportError:
+    # For Django < 1.10
+    from django.core.urlresolvers import reverse
 from django.test.utils import override_settings
 
 from avatar.admin import AvatarAdmin
@@ -10,7 +15,24 @@ from avatar.conf import settings
 from avatar.utils import get_primary_avatar, get_user_model
 from avatar.models import Avatar
 from avatar.templatetags import avatar_tags
-from PIL import Image
+from avatar.signals import avatar_deleted
+from PIL import Image, ImageChops
+
+
+class AssertSignal:
+    def __init__(self):
+        self.signal_sent_count = 0
+        self.avatar = None
+        self.user = None
+        self.sender = None
+        self.signal = None
+
+    def __call__(self, user, avatar, sender, signal):
+        self.user = user
+        self.avatar = avatar
+        self.sender = sender
+        self.signal = signal
+        self.signal_sent_count += 1
 
 
 def upload_helper(o, filename):
@@ -22,8 +44,17 @@ def upload_helper(o, filename):
     return response
 
 
-class AvatarTests(TestCase):
+def root_mean_square_difference(image1, image2):
+    "Calculate the root-mean-square difference between two images"
+    diff = ImageChops.difference(image1, image2).convert('L')
+    h = diff.histogram()
+    sq = (value * (idx ** 2) for idx, value in enumerate(h))
+    sum_of_squares = sum(sq)
+    rms = math.sqrt(sum_of_squares / float(image1.size[0] * image1.size[1]))
+    return rms
 
+
+class AvatarTests(TestCase):
     def setUp(self):
         self.testdatapath = os.path.join(os.path.dirname(__file__), "data")
         self.user = get_user_model().objects.create_user('test', 'lennon@thebeatles.com', 'testpassword')
@@ -106,6 +137,8 @@ class AvatarTests(TestCase):
         self.test_normal_image_upload()
         avatar = Avatar.objects.filter(user=self.user)
         self.assertEqual(len(avatar), 1)
+        receiver = AssertSignal()
+        avatar_deleted.connect(receiver)
         response = self.client.post(reverse('avatar_delete'), {
             'choices': [avatar[0].id],
         }, follow=True)
@@ -113,6 +146,10 @@ class AvatarTests(TestCase):
         self.assertEqual(len(response.redirect_chain), 1)
         count = Avatar.objects.filter(user=self.user).count()
         self.assertEqual(count, 0)
+        self.assertEqual(receiver.user, self.user)
+        self.assertEqual(receiver.avatar, avatar[0])
+        self.assertEqual(receiver.sender, Avatar)
+        self.assertEqual(receiver.signal_sent_count, 1)
 
     def test_delete_primary_avatar_and_new_primary(self):
         self.test_there_can_be_only_one_primary_avatar()
@@ -171,6 +208,17 @@ class AvatarTests(TestCase):
         avatar = get_primary_avatar(self.user)
         image = Image.open(avatar.avatar.storage.open(avatar.avatar_name(settings.AVATAR_DEFAULT_SIZE), 'rb'))
         self.assertEqual(image.mode, 'RGB')
+
+    def test_thumbnail_transpose_based_on_exif(self):
+        upload_helper(self, "image_no_exif.jpg")
+        avatar = get_primary_avatar(self.user)
+        image_no_exif = Image.open(avatar.avatar.storage.open(avatar.avatar_name(settings.AVATAR_DEFAULT_SIZE), 'rb'))
+
+        upload_helper(self, "image_exif_orientation.jpg")
+        avatar = get_primary_avatar(self.user)
+        image_with_exif = Image.open(avatar.avatar.storage.open(avatar.avatar_name(settings.AVATAR_DEFAULT_SIZE), 'rb'))
+
+        self.assertLess(root_mean_square_difference(image_with_exif, image_no_exif), 1)
 
     def test_has_avatar_False_if_no_avatar(self):
         self.assertFalse(avatar_tags.has_avatar(self.user))
