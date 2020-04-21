@@ -119,7 +119,10 @@ def get_primary_avatar(user, size=settings.AVATAR_DEFAULT_SIZE):
         # it will be first, and then ordered by date uploaded, otherwise a
         # primary=False avatar will be first.  Exactly the fallback behavior we
         # want.
-        avatar = user.avatar_set.order_by("-primary", "-date_uploaded")[0]
+        if hasattr(user, 'uploaded_avatars'):
+            avatar = user.uploaded_avatars[0]
+        else:
+            avatar = user.avatar_set.order_by("-primary", "-date_uploaded")[0]
     except IndexError:
         avatar = None
     if avatar:
