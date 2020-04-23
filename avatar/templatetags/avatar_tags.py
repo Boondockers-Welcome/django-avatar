@@ -26,8 +26,8 @@ from avatar.utils import (
 register = template.Library()
 
 
-@cache_result()
 @register.simple_tag
+@cache_result
 def avatar_url(user, size=settings.AVATAR_DEFAULT_SIZE):
     for provider_path in settings.AVATAR_PROVIDERS:
         provider = import_string(provider_path)
@@ -36,8 +36,8 @@ def avatar_url(user, size=settings.AVATAR_DEFAULT_SIZE):
             return avatar_url
 
 
-@cache_result()
 @register.simple_tag
+@cache_result
 def avatar(user, size=settings.AVATAR_DEFAULT_SIZE, **kwargs):
     if not isinstance(user, get_user_model()):
         try:
@@ -68,8 +68,8 @@ def has_avatar(user):
     return Avatar.objects.filter(user=user, primary=True).exists()
 
 
-@cache_result()
 @register.simple_tag
+@cache_result
 def primary_avatar(user, size=settings.AVATAR_DEFAULT_SIZE):
     """
     This tag tries to get the default avatar for a user without doing any db
@@ -83,8 +83,8 @@ def primary_avatar(user, size=settings.AVATAR_DEFAULT_SIZE):
             (url, alt, size, size))
 
 
-@cache_result()
 @register.simple_tag
+@cache_result
 def render_avatar(avatar, size=settings.AVATAR_DEFAULT_SIZE):
     if not avatar.thumbnail_exists(size):
         avatar.create_thumbnail(size)

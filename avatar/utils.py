@@ -1,5 +1,5 @@
 import hashlib
-
+from functools import wraps
 from django.core.cache import cache
 from django.template.defaultfilters import slugify
 
@@ -51,28 +51,24 @@ def cache_set(key, value):
     return value
 
 
-def cache_result(default_size=settings.AVATAR_DEFAULT_SIZE):
+def cache_result(func=None):
     """
     Decorator to cache the result of functions that take a ``user`` and a
     ``size`` value.
     """
-    if not settings.AVATAR_CACHE_ENABLED:
-        def decorator(func):
-            return func
-        return decorator
-
-    def decorator(func):
-        def cached_func(user, size=None, **kwargs):
-            prefix = func.__name__
-            cached_funcs.add(prefix)
-            key = get_cache_key(user, size or default_size, prefix=prefix)
-            result = cache.get(key)
-            if result is None:
-                result = func(user, size or default_size, **kwargs)
-                cache_set(key, result)
-            return result
-        return cached_func
-    return decorator
+    @wraps(func)
+    def cached_func(user, size=None, **kwargs):
+        if not settings.AVATAR_CACHE_ENABLED:
+            return func(user, size or settings.AVATAR_DEFAULT_SIZE, **kwargs)
+        prefix = func.__name__
+        cached_funcs.add(prefix)
+        key = get_cache_key(user, size or settings.AVATAR_DEFAULT_SIZE, prefix=prefix)
+        result = cache.get(key)
+        if result is None:
+            result = func(user, size or settings.AVATAR_DEFAULT_SIZE, **kwargs)
+            cache_set(key, result)
+        return result
+    return cached_func
 
 
 def invalidate_cache(user, size=None):
